@@ -15,7 +15,7 @@ const formatTime = (date) => {
 
 export default function App() {
   const { user, isLoggingIn, loginError, login, logout } = useAuth();
-  const { marketData, loading, lastUpdate, dataError, fetchAllData } = useMarketData(!!user);
+  const { marketData, loading, lastUpdate, dataError, dataSource, fetchAllData } = useMarketData(!!user);
 
   if (!user) {
     return <LoginForm onLogin={login} isLoggingIn={isLoggingIn} loginError={loginError} />;
@@ -74,7 +74,7 @@ export default function App() {
         {/* 푸터 정보 */}
         <footer className="mt-6 text-center text-slate-500 text-xs">
           <p className="text-slate-400 mb-1">로그인: {user.email}</p>
-          <p>Yahoo Finance 실시간 데이터</p>
+          {dataSource && <p>{dataSource}</p>}
           <p className="mt-1">{AUTO_REFRESH_MS / 60000}분마다 자동 업데이트</p>
         </footer>
       </div>

@@ -25,6 +25,7 @@ export function useMarketData(isActive) {
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [dataError, setDataError] = useState('');
+  const [dataSource, setDataSource] = useState('');
   const isFetchingRef = useRef(false);
 
   const fetchAllData = useCallback(async (retryCount = 0) => {
@@ -53,6 +54,7 @@ export function useMarketData(isActive) {
           }),
         }));
         setLastUpdate(new Date());
+        if (result.source) setDataSource(result.source);
       } else {
         throw new Error('Invalid response format');
       }
@@ -95,5 +97,5 @@ export function useMarketData(isActive) {
     return () => clearInterval(interval);
   }, [isActive, fetchAllData]);
 
-  return { marketData, loading, lastUpdate, dataError, fetchAllData };
+  return { marketData, loading, lastUpdate, dataError, dataSource, fetchAllData };
 }
