@@ -123,7 +123,8 @@ async function fetchKoreanStock(accessToken, code) {
 // Vercel Serverless Function Handler
 export default async function handler(req, res) {
   // CORS 헤더 설정
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const allowedOrigin = 'https://stock-dashboard-eta-one.vercel.app';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -162,9 +163,8 @@ export default async function handler(req, res) {
     res.status(200).json(result);
   } catch (error) {
     console.error('API Error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
+    res.status(500).json({
+      error: 'Internal server error'
     });
   }
 }

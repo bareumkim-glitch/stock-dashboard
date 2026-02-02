@@ -3,11 +3,6 @@ import { TrendingUp, TrendingDown, RefreshCw, LogOut, AlertCircle } from 'lucide
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
-// API 엔드포인트 (로컬 개발 vs 프로덕션)
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '/api'  // Vercel 배포 시
-  : 'http://localhost:3000/api';  // 로컬 개발 시
-
 const StockDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -21,10 +16,10 @@ const StockDashboard = () => {
   // 실제 데이터
   const [marketData, setMarketData] = useState({
     indices: [
-      { name: 'KOSPI', code: '0001', type: 'index', price: 0, change: 0, changePercent: 0, loading: true },
-      { name: 'TIGER 200', code: '102110', type: 'stock', price: 0, change: 0, changePercent: 0, loading: true },
-      { name: 'VIX 지수', code: 'VIX', type: 'foreign', price: 0, change: 0, changePercent: 0, loading: true },
-      { name: '원/달러', code: 'FX@KRW', type: 'forex', price: 0, change: 0, changePercent: 0, loading: true },
+      { name: 'KOSPI', symbol: '^KS11', price: 0, change: 0, changePercent: 0, loading: true },
+      { name: 'TIGER 200', symbol: '102110.KS', price: 0, change: 0, changePercent: 0, loading: true },
+      { name: 'VIX 지수', symbol: '^VIX', price: 0, change: 0, changePercent: 0, loading: true },
+      { name: '원/달러', symbol: 'KRW=X', price: 0, change: 0, changePercent: 0, loading: true },
     ]
   });
 
@@ -40,122 +35,55 @@ const StockDashboard = () => {
     return () => unsubscribe();
   }, []);
 
-  // 모든 데이터 가져오기
+  // 백엔드 API에서 모든 데이터 가져오기
   const fetchAllData = async () => {
     setLoading(true);
     setDataError('');
 
     try {
-      // 한국 시장 데이터 (백엔드 API 사용)
-      await Promise.all([
-        fetchFromBackend('index', '0001', 'KOSPI'),
-        fetchFromBackend('stock', '102110', 'TIGER 200'),
-      ]);
-
-      // 해외 데이터 (직접 호출)
-      await fetchVIX();
-      await fetchForex();
-
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('데이터 가져오기 오류:', error);
-      setDataError('일부 데이터를 가져오는 데 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 백엔드 API에서 데이터 가져오기
-  const fetchFromBackend = async (type, code, name) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/kis-proxy?type=${type}&code=${code}`);
+      const response = await fetch('/api/stock-data');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const data = await response.json();
+      const result = await response.json();
       
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      updateMarketData(code, {
-        price: data.price,
-        change: data.change,
-        changePercent: data.changePercent,
-        loading: false
-      });
-    } catch (error) {
-      console.error(`${name} 데이터 오류:`, error);
-      updateMarketData(code, { loading: false });
-    }
-  };
-
-  // VIX 지수 (Yahoo Finance)
-  const fetchVIX = async () => {
-    try {
-      const response = await fetch(
-        'https://query1.finance.yahoo.com/v8/finance/chart/^VIX?interval=1d&range=1d'
-      );
-      const data = await response.json();
-      
-      if (data.chart?.result?.[0]) {
-        const result = data.chart.result[0];
-        const meta = result.meta;
-        const currentPrice = meta.regularMarketPrice;
-        const previousClose = meta.chartPreviousClose;
-        const change = currentPrice - previousClose;
-        const changePercent = (change / previousClose) * 100;
-
-        updateMarketData('VIX', {
-          price: currentPrice,
-          change: change,
-          changePercent: changePercent,
-          loading: false
+      if (result.success && result.data) {
+        // 받은 데이터로 업데이트
+        result.data.forEach(item => {
+          updateMarketData(item.symbol, {
+            price: item.price,
+            change: item.change,
+            changePercent: item.changePercent,
+            loading: false
+          });
         });
+
+        setLastUpdate(new Date());
+      } else {
+        throw new Error('Invalid response format');
       }
     } catch (error) {
-      console.error('VIX 데이터 오류:', error);
-      updateMarketData('VIX', { loading: false });
-    }
-  };
-
-  // 원/달러 환율
-  const fetchForex = async () => {
-    try {
-      const response = await fetch(
-        'https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=1d'
-      );
-      const data = await response.json();
+      console.error('데이터 가져오기 오류:', error);
+      setDataError('데이터를 가져오는 데 실패했습니다. 새로고침을 시도해주세요.');
       
-      if (data.chart?.result?.[0]) {
-        const result = data.chart.result[0];
-        const meta = result.meta;
-        const currentPrice = meta.regularMarketPrice;
-        const previousClose = meta.chartPreviousClose;
-        const change = currentPrice - previousClose;
-        const changePercent = (change / previousClose) * 100;
-
-        updateMarketData('FX@KRW', {
-          price: currentPrice,
-          change: change,
-          changePercent: changePercent,
-          loading: false
-        });
-      }
-    } catch (error) {
-      console.error('환율 데이터 오류:', error);
-      updateMarketData('FX@KRW', { loading: false });
+      // 모든 항목의 loading 상태 해제
+      setMarketData(prev => ({
+        ...prev,
+        indices: prev.indices.map(index => ({ ...index, loading: false }))
+      }));
+    } finally {
+      setLoading(false);
     }
   };
 
   // 데이터 업데이트 헬퍼 함수
-  const updateMarketData = (code, newData) => {
+  const updateMarketData = (symbol, newData) => {
     setMarketData(prev => ({
       ...prev,
       indices: prev.indices.map(index => 
-        index.code === code 
+        index.symbol === symbol 
           ? { ...index, ...newData }
           : index
       )
@@ -332,7 +260,7 @@ const StockDashboard = () => {
             >
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="text-slate-400 text-xs font-medium">{index.code}</h3>
+                  <h3 className="text-slate-400 text-xs font-medium">{index.symbol}</h3>
                   <h2 className="text-white text-xl font-bold">{index.name}</h2>
                 </div>
                 <div className={`p-2 rounded-lg ${
