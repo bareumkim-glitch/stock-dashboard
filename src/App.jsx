@@ -1,223 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, RefreshCw, LogOut, AlertCircle } from 'lucide-react';
-import { auth } from './firebase';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { RefreshCw, LogOut, AlertCircle } from 'lucide-react';
+import { useAuth } from './hooks/useAuth';
+import { useMarketData } from './hooks/useMarketData';
+import LoginForm from './components/LoginForm';
+import MarketCard from './components/MarketCard';
+import { AUTO_REFRESH_MS } from './constants';
 
-const StockDashboard = () => {
-  const [loading, setLoading] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-  const [user, setUser] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [dataError, setDataError] = useState('');
-
-  // 실제 데이터
-  const [marketData, setMarketData] = useState({
-    indices: [
-      { name: 'KOSPI', symbol: '^KS11', price: 0, change: 0, changePercent: 0, loading: true },
-      { name: 'TIGER 200', symbol: '102110.KS', price: 0, change: 0, changePercent: 0, loading: true },
-      { name: 'VIX 지수', symbol: '^VIX', price: 0, change: 0, changePercent: 0, loading: true },
-      { name: '원/달러', symbol: 'KRW=X', price: 0, change: 0, changePercent: 0, loading: true },
-    ]
+const formatTime = (date) => {
+  return date.toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   });
+};
 
-  // Firebase 인증 상태 감시
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        fetchAllData();
-      }
-    });
+export default function App() {
+  const { user, isLoggingIn, loginError, login, logout } = useAuth();
+  const { marketData, loading, lastUpdate, dataError, fetchAllData } = useMarketData(!!user);
 
-    return () => unsubscribe();
-  }, []);
-
-  // 백엔드 API에서 모든 데이터 가져오기
-  const fetchAllData = async () => {
-    setLoading(true);
-    setDataError('');
-
-    try {
-      const response = await fetch('/api/stock-data');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        // 받은 데이터로 업데이트
-        result.data.forEach(item => {
-          updateMarketData(item.symbol, {
-            price: item.price,
-            change: item.change,
-            changePercent: item.changePercent,
-            loading: false
-          });
-        });
-
-        setLastUpdate(new Date());
-      } else {
-        throw new Error('Invalid response format');
-      }
-    } catch (error) {
-      console.error('데이터 가져오기 오류:', error);
-      setDataError('데이터를 가져오는 데 실패했습니다. 새로고침을 시도해주세요.');
-      
-      // 모든 항목의 loading 상태 해제
-      setMarketData(prev => ({
-        ...prev,
-        indices: prev.indices.map(index => ({ ...index, loading: false }))
-      }));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 데이터 업데이트 헬퍼 함수
-  const updateMarketData = (symbol, newData) => {
-    setMarketData(prev => ({
-      ...prev,
-      indices: prev.indices.map(index => 
-        index.symbol === symbol 
-          ? { ...index, ...newData }
-          : index
-      )
-    }));
-  };
-
-  // 로그인 처리
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
-    setIsLoggingIn(true);
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      console.error('로그인 오류:', error);
-      
-      let errorMessage = '로그인에 실패했습니다.';
-      if (error.code === 'auth/invalid-email') {
-        errorMessage = '유효하지 않은 이메일 형식입니다.';
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = '등록되지 않은 사용자입니다.';
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = '비밀번호가 올바르지 않습니다.';
-      } else if (error.code === 'auth/invalid-credential') {
-        errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
-      }
-      
-      setLoginError(errorMessage);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // 로그아웃 처리
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('로그아웃 오류:', error);
-    }
-  };
-
-  // 5분마다 자동 새로고침
-  useEffect(() => {
-    if (user) {
-      const interval = setInterval(() => {
-        fetchAllData();
-      }, 300000); // 5분
-      
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('ko-KR', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  // 로그인하지 않은 경우 로그인 화면 표시
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">📈 시장 대시보드</h1>
-            <p className="text-slate-400">로그인하여 접속하세요</p>
-          </div>
-          
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">
-                이메일
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 border border-slate-600 focus:border-blue-500 focus:outline-none"
-                placeholder="your-email@gmail.com"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">
-                비밀번호
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 border border-slate-600 focus:border-blue-500 focus:outline-none"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            {loginError && (
-              <div className="bg-red-500/20 border border-red-500 text-red-400 rounded-lg px-4 py-3 text-sm">
-                {loginError}
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoggingIn ? '로그인 중...' : '로그인'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center text-slate-500 text-xs">
-            <p>※ Firebase Authentication으로 보호됨</p>
-            <p className="mt-1">승인된 사용자만 접근 가능합니다</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoginForm onLogin={login} isLoggingIn={isLoggingIn} loginError={loginError} />;
   }
 
-  // 로그인한 경우 대시보드 표시
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <div className="max-w-[1024px] mx-auto">
         {/* 헤더 */}
-        <div className="mb-6 flex justify-between items-center">
+        <header className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-1">
-              📈 시장 대시보드
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
+              시장 대시보드
             </h1>
             <p className="text-slate-400 text-sm">
               마지막 업데이트: {formatTime(lastUpdate)}
@@ -228,86 +39,45 @@ const StockDashboard = () => {
             <button
               onClick={fetchAllData}
               disabled={loading}
+              aria-label="데이터 새로고침"
               className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
             <button
-              onClick={handleLogout}
+              onClick={logout}
+              aria-label="로그아웃"
               className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all"
             >
               <LogOut className="w-4 h-4" />
               로그아웃
             </button>
           </div>
-        </div>
+        </header>
 
         {/* 에러 메시지 */}
         {dataError && (
-          <div className="mb-4 bg-yellow-500/20 border border-yellow-500 text-yellow-400 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
+          <div role="alert" className="mb-4 bg-yellow-500/20 border border-yellow-500 text-yellow-400 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {dataError}
           </div>
         )}
 
-        {/* 주요 지수 카드 - 2x2 그리드 */}
-        <div className="grid grid-cols-2 gap-4">
-          {marketData.indices.map((index, idx) => (
-            <div 
-              key={idx}
-              className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-slate-600 transition-all hover:shadow-xl"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-slate-400 text-xs font-medium">{index.symbol}</h3>
-                  <h2 className="text-white text-xl font-bold">{index.name}</h2>
-                </div>
-                <div className={`p-2 rounded-lg ${
-                  index.change >= 0 ? 'bg-green-500/20' : 'bg-red-500/20'
-                }`}>
-                  {index.loading ? (
-                    <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
-                  ) : index.change >= 0 ? (
-                    <TrendingUp className="w-5 h-5 text-green-400" />
-                  ) : (
-                    <TrendingDown className="w-5 h-5 text-red-400" />
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-white">
-                  {index.loading ? (
-                    <span className="text-slate-500">로딩 중...</span>
-                  ) : index.price > 0 ? (
-                    index.price.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
-                  ) : (
-                    <span className="text-slate-500">데이터 없음</span>
-                  )}
-                </div>
-                {!index.loading && index.price > 0 && (
-                  <div className={`flex items-center gap-2 text-base font-semibold ${
-                    index.change >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    <span>{index.change >= 0 ? '+' : ''}{index.change.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}</span>
-                    <span>({index.changePercent >= 0 ? '+' : ''}{index.changePercent.toFixed(2)}%)</span>
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* 주요 지수 카드 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {marketData.indices.map((index) => (
+            <MarketCard key={index.symbol} data={index} />
           ))}
         </div>
 
         {/* 푸터 정보 */}
-        <div className="mt-6 text-center text-slate-500 text-xs">
+        <footer className="mt-6 text-center text-slate-500 text-xs">
           <p className="text-slate-400 mb-1">로그인: {user.email}</p>
-          <p>※ 한국투자증권 OpenAPI + Yahoo Finance 실시간 데이터</p>
-          <p className="mt-1">※ 5분마다 자동 업데이트</p>
-        </div>
+          <p>Yahoo Finance 실시간 데이터</p>
+          <p className="mt-1">{AUTO_REFRESH_MS / 60000}분마다 자동 업데이트</p>
+        </footer>
       </div>
     </div>
   );
-};
-
-export default StockDashboard;
+}
