@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>stock-dashboard</title>
+    <script>
+      // globalThis polyfill (Safari 12.0)
+      if (typeof globalThis === 'undefined') {
+        Object.defineProperty(Object.prototype, '__globalThis__', {
+          get: function () { return this; },
+          configurable: true
+        });
+        __globalThis__.globalThis = __globalThis__;
+        delete Object.prototype.__globalThis__;
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
