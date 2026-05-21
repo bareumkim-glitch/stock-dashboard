@@ -36,7 +36,7 @@ export default function MarketCard({ data }) {
         </div>
         {!data.loading && data.price > 0 && (
           <div
-            className={`flex items-center gap-2 text-base font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}
+            className={`flex items-center space-x-2 text-base font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}
             aria-label={`${isPositive ? '상승' : '하락'} ${Math.abs(data.changePercent).toFixed(2)}%`}
           >
             <span>

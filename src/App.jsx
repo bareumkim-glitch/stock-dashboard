@@ -25,7 +25,7 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <div className="max-w-[1024px] mx-auto">
         {/* 헤더 */}
-        <header className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <header className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
               시장 대시보드
@@ -35,22 +35,22 @@ export default function App() {
               {loading && <span className="ml-2 text-blue-400">업데이트 중...</span>}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex space-x-2">
             <button
               onClick={fetchAllData}
               disabled={loading}
               aria-label="데이터 새로고침"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               새로고침
             </button>
             <button
               onClick={logout}
               aria-label="로그아웃"
-              className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all"
+              className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg flex items-center transition-all"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 mr-2" />
               로그아웃
             </button>
           </div>
@@ -58,8 +58,8 @@ export default function App() {
 
         {/* 에러 메시지 */}
         {dataError && (
-          <div role="alert" className="mb-4 bg-yellow-500/20 border border-yellow-500 text-yellow-400 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div role="alert" className="mb-4 bg-yellow-500/20 border border-yellow-500 text-yellow-400 rounded-lg px-4 py-3 text-sm flex items-center">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mr-2" />
             {dataError}
           </div>
         )}
